@@ -126,7 +126,7 @@ end_loop:
          beq s2, s3, finish
          slli t0, s2, 2 #t0=offset
          la a3, res
-         addi t1, a3, t0 #t1->res[i]
+         add t1, a3, t0 #t1->res[i]
          la a0, str1 #a0->"%d "
          lw t2, 0(t1)  #t2=res[i]
          mv a1, t2
@@ -137,7 +137,7 @@ end_loop:
 finish:
        slli t0, s2, 2 #t0=offset
        la a3, res
-       addi t1, a3, t0 #t1->res[i]
+       add t1, a3, t0 #t1->res[i]
        lw t2, 0(t1)  #t2=res[i]
        la a0, str2 #a0->"%d "
        mv a1, t2
