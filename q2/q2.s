@@ -4,149 +4,144 @@ str2: .string "%d\n"
 stack: .space 4000
 arr: .space 4000
 res: .space 4000
+
 .section .text
 .globl main
 .extern atoi
 .extern printf
 
 main:
-     addi sp, sp, -40
-     sd ra, 0(sp)
-     sd s0, 8(sp)
-     sd s1, 16(sp)
-     sd s2, 24(sp)
-     sd s3, 32(sp) #s2, s3 for printing results 
-     mv s0, a0 #s0=argc
-     mv s1, a1 #s1=argv
-     li t0, 1 #i=1
-     li t1, 0 #offset for argv
-     li t3, 0 #offset for arr
-     la t5, arr #calcs final address for storing
-init:
-     bge t0, s0, next
-     add t2, s1, t1 
+    # Save registers and align stack
+    addi sp, sp, -48
+    sd ra, 0(sp)
+    sd s0, 8(sp)
+    sd s1, 16(sp)
+    sd s2, 24(sp)
+    sd s3, 32(sp)
+    sd s4, 40(sp) 
 
-     ld a0, 0(t2)
-     call atoi
+    mv s0, a0        #s0 = argc
+    mv s1, a1        #s1 = argv
+    
+    # Command Line Arguments
+    li s2, 1         #i=1 (skip exec file name)
+    la s4, arr       #s4 -> arr
+    li s3, 0         #offset
+    
+input_handle:
+          bge s2, s0, init_res
+          slli t1, s2, 3   # offset=8 for argv
+          add t1, s1, t1
+          ld a0, 0(t1)     # Load string
+          
+          call atoi      
+          
+          add t2, s4, s3
+          sw a0, 0(t2)     # int(arr[i-1]) 
+          
+          addi s3, s3, 4   #offset+=4
+          addi s2, s2, 1   #i++
+          jal x0, input_handle
 
-     add t4, t5, t3 
-     sw a0, 0(t4) #arr[i]=a0
+init_res:
+          addi s0, s0, -1  # s0 = n
+          li t0, 0 
+          li t1, -1
+          la t2, res #t2->res
 
-     addi t3, t3, 4
-     addi t0, t0, 1
-     addi t1, t1, 8
+res_fill:
+          bge t0, s0, start #start the algorithm after filling the res array
+          slli t3, t0, 2
+          add t3, t3, t2
+          sw t1, 0(t3)     #result[i]=-1
+          addi t0, t0, 1
+          jal x0, res_fill
 
-     jal x0, init
+start:
+          la s1, stack     #s1->stack
+          la s3, res       #s3->res
+          addi s2, s0, -1  #s2=i=n-1 (Outer loop index)
+          li t2, -1        #t2=stack.top
 
-next:
-     li t0, 0 #i=0
-     li t3, 0 #offset for res
-     la t6, res #storage for address
-     li t1, -1 #for storing -1
+outer_loop:
+          blt s2, x0, print_start
+          
+          slli t3, s2, 2
+          add t3, t3, s4   #t3->*(arr+s2*4)
+          lw t4, 0(t3)     #t4 = arr[i]
 
-res_init:
-         bge t0, s0, func
-         add t5, t6, t3 #t5 calcs final address
+inner_loop:
+          li t5, -1
+          beq t2, t5, after_inner  # if stack empty, break
+          
+          slli t1, t2, 2
+          add t1, t1, s1
+          lw t6, 0(t1)     # t6 = index at stack top
+          
+          slli t0, t6, 2
+          add t0, t0, s4
+          lw t0, 0(t0)     # t0 = arr[stack.top()]
 
-         sw t1, 0(t5)
-         addi t0, t0, 1
-         addi t3, t3, 4
+          bgt t0, t4, after_inner  # if arr[stack.top]>arr[i], break
+          
+          addi t2, t2, -1  # stack.pop()
+          jal x0, inner_loop
 
-         jal x0, res_init
+after_inner:
+    # If stack not empty, result[i] = stack.top()
+    li t5, -1
+    beq t2, t5, push_stack
+    
+    slli t1, t2, 2
+    add t1, t1, s1
+    lw t6, 0(t1)     # index of next greater
+    
+    slli t3, s2, 2
+    add t3, t3, s3
+    sw t6, 0(t3)     # res[i] = next greater index
 
-func:
-     la a0, arr
-     la a1, stack
-     la a2, res
+push_stack:
+    addi t2, t2, 1   # stack.push(i)
+    slli t1, t2, 2
+    add t1, t1, s1
+    sw s2, 0(t1)
+    
+    addi s2, s2, -1  # Progress outer loop index i--
+    jal x0, outer_loop
 
-     addi t0, s0, -2  #i=argc-2
-     li t2, -1 #stack.top
+    # 3. Print Results
+print_start:
+    li s2, 0         # i = 0
+    addi s0, s0, -1  # Stop at n-1 for formatted printing
+    
+    #Single element
+    blt s0, x0, finish 
+    beq s0, x0, final_print
 
-loop_out: #used: t0, t1, t2, t4 / t3, t5 can be used for intermediate calc
-         blt t0, x0, end_print
-         slli t3, t0, 2
-         add t4, t3, a0 #t4->arr[i]
+print_loop:
+    bge s2, s0, final_print
+    slli t0, s2, 2
+    add t0, t0, s3
+    lw a1, 0(t0)
+    la a0, str1
+    call printf #printf("%d ",res[i]);
+    
+    addi s2, s2, 1
+    jal x0, print_loop
 
-         slli t5, t2, 2
-         add t1, a1, t5 #t1->stack.top()
-
-         jal x0, loop_in #jump to inner loop
-
-loop_out_nxt:
-             addi t2, t2, 1
-             slli t5, t2, 2
-             add t1, a1, t5 #t1->stack.top() for insertion
-             
-             sw t0, 0(t1)
-             addi t0, t0, -1
-             jal x0, loop_out
-
-loop_in:
-        li t3, -1
-        ble t2, t3, goback #if stack.top()==-1, go back
-        
-        lw t6, 0(t1) #t6=stack.top()
-        slli t5, t6, 2
-        add t6, t5, a0 #t6->arr[stack.top()]
-
-        lw t6, 0(t6) #t1=arr[stack.top()]
-        lw t5, 0(t4) #t5=arr[i]
-
-        bgt t6, t5, goback 
-
-        addi t2, t2, -1 #top--;
-
-        slli t5, t2, 2
-        add  t1, a1, t5 #recomputation of t1
-
-        jal x0, loop_in
-
-goback:
-       bge t2, x0, non_emp_goback #top>=0 
-
-       jal x0, loop_out_nxt
-
-non_emp_goback:
-               slli t5, t0, 2
-               add t3, a2, t5 #t3->res[i]
-
-               slli t5, t2, 2
-               add t1, a1, t5 #t1->stack.top()
-               lw t5, 0(t1) #t5=stack.top()
-
-               sw t5, 0(t3) #res[i]=t5
-
-               jal x0, loop_out_nxt
-
-end_print:
-          addi s3, s0, -2 #s3=argc-1
-          mv s2, x0 #s2=i=0 
-
-end_loop:
-         beq s2, s3, finish
-         slli t0, s2, 2 #t0=offset
-         la a3, res
-         add t1, a3, t0 #t1->res[i]
-         la a0, str1 #a0->"%d "
-         lw t2, 0(t1)  #t2=res[i]
-         mv a1, t2
-         call printf
-         addi s2, s2, 1
-         jal x0, end_loop
+final_print:
+    slli t0, s2, 2
+    add t0, t0, s3
+    lw a1, 0(t0)
+    la a0, str2      # "%d\n"
+    call printf
 
 finish:
-       slli t0, s2, 2 #t0=offset
-       la a3, res
-       add t1, a3, t0 #t1->res[i]
-       lw t2, 0(t1)  #t2=res[i]
-       la a0, str2 #a0->"%d "
-       mv a1, t2
-       call printf
-
-       ld ra, 0(sp)
-       ld s0, 8(sp)
-       ld s1, 16(sp)
-       ld s2, 24(sp)
-       ld s3, 32(sp) 
-       addi sp, sp, 40
-       ret
+    ld ra, 0(sp)
+    ld s0, 8(sp)
+    ld s1, 16(sp)
+    ld s2, 24(sp)
+    ld s3, 32(sp)
+    ld s4, 40(sp)
+    addi sp, sp, 48
+    ret
