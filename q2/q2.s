@@ -1,9 +1,9 @@
 .section .data
 str1: .string "%d "
 str2: .string "%d\n"
-stack: .space 4000
-arr: .space 4000
-res: .space 4000
+stack: .space 360000
+arr: .space 360000
+res: .space 360000
 
 .section .text
 .globl main
