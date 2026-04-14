@@ -32,7 +32,7 @@ len_:
           mv a0, s0
           li a1, 0
           li a2, 2
-          call fseek #fseek(fp,0,seek_end)
+          call fseek #fseek(fp,0,seek_end -> represented by 2)
 
           mv a0, s0
           call ftell
@@ -45,10 +45,10 @@ loop:
      mv a0, s0
      mv a1, s2
      li a2, 0
-     call fseek
+     call fseek  #fseek(fp,0,seek_start -> represented by 0)
 
      mv a0, s0
-     call fgetc
+     call fgetc 
      mv t0, a0 #left
 
      addi t2, s1, -1 #t2=len-1
@@ -56,7 +56,7 @@ loop:
 
      
      mv a0, s0
-     mv a1, t2
+     mv a1, t2 #offset from s0=len-i-1
      li a2, 0
      call fseek  #start
 
