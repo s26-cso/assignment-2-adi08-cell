@@ -1,14 +1,18 @@
 .section .data
 str1: .string "%d "
 str2: .string "%d\n"
-stack: .space 360000
-arr: .space 360000
-res: .space 360000
+
+.align 3 #for alignment after using .space 8 for each
+#each of these labels stores the address of pointers obtained in malloc
+stack: .space 8
+arr: .space 8
+res: .space 8
 
 .section .text
 .globl main
 .extern atoi
 .extern printf
+.extern malloc
 
 main:
     # Save registers and align stack
@@ -23,21 +27,43 @@ main:
     mv s0, a0        #s0 = argc
     mv s1, a1        #s1 = argv
     
+    addi a0, s0, -1 #no. of elements for malloc
+    slli a0, a0, 2
+    call malloc
+
+    la t0, arr      #t0->arr
+    sd a0, 0(t0)    #arr->starting address for malloc
+
+    addi a0, s0, -1 #no. of elements for malloc
+    slli a0, a0, 2
+    call malloc
+
+    la t0, stack      #t0->stack
+    sd a0, 0(t0)    #stack->starting address for malloc
+
+    addi a0, s0, -1 #no. of elements for malloc
+    slli a0, a0, 2
+    call malloc
+
+    la t0, res      #t0->res
+    sd a0, 0(t0)    #stack->starting address for malloc
+
     # Command Line Arguments
     li s2, 1         #i=1 (skip exec file name)
-    la s4, arr       #s4 -> arr
+    la s4, arr       #s4 -> arr (label addr)
+    ld s4, 0(s4)     #s4-> arr (malloc starting addr)
     li s3, 0         #offset
     
 input_handle:
           bge s2, s0, init_res
-          slli t1, s2, 3   # offset=8 for argv
+          slli t1, s2, 3   #offset=8 for argv
           add t1, s1, t1
-          ld a0, 0(t1)     # Load string
+          ld a0, 0(t1)     #Load string
           
           call atoi      
           
           add t2, s4, s3
-          sw a0, 0(t2)     # int(arr[i-1]) 
+          sw a0, 0(t2)     #int(arr[i-1]) 
           
           addi s3, s3, 4   #offset+=4
           addi s2, s2, 1   #i++
@@ -47,7 +73,8 @@ init_res:
           addi s0, s0, -1  # s0 = n
           li t0, 0 
           li t1, -1
-          la t2, res #t2->res
+          la t2, res #t2->res (label addr)
+          ld t2, 0(t2)  #t2=>res (malloc starting addr)
 
 res_fill:
           bge t0, s0, start #start the algorithm after filling the res array
@@ -58,8 +85,12 @@ res_fill:
           jal x0, res_fill
 
 start:
-          la s1, stack     #s1->stack
-          la s3, res       #s3->res
+          la s1, stack     #s1->stack (label starting addr)
+          ld s1, 0(s1)     #s1->stack (malloc starting addr)
+
+          la s3, res       #s3->res (label starting addr)
+          ld s3, 0(s3)      #s3->res (malloc starting addr)
+
           addi s2, s0, -1  #s2=i=n-1 (Outer loop index)
           li t2, -1        #t2=stack.top
 
